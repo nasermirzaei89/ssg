@@ -3,20 +3,20 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/nasermirzaei89/ssg"
+	"github.com/nasermirzaei89/ssg/internal/ssg"
 	"log"
 )
 
 func main() {
 	pathFlag := flag.String("path", ".", "root path of site repo")
 	distFlag := flag.String("dist", "dist", "path to generate in")
-	templateFlag := flag.String("template", "default", "template name to generate from")
+	themeFlag := flag.String("theme", "default", "theme name to generate with")
 	portFlag := flag.String("port", "8080", "port of serve")
 	flag.Parse()
 
 	switch {
 	case flag.Arg(0) == "generate":
-		err := ssg.Generate(*pathFlag, *distFlag, *templateFlag)
+		err := ssg.Generate(*pathFlag, *distFlag, *themeFlag)
 		if err != nil {
 			log.Fatalln(fmt.Errorf("error on generate: %w", err))
 		}
