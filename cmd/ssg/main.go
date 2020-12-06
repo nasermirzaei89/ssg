@@ -1,39 +1,76 @@
 package main
 
 import (
-	"flag"
-	"fmt"
 	"github.com/nasermirzaei89/ssg/internal/ssg"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v2"
 	"log"
+	"os"
 )
 
 func main() {
-	pathFlag := flag.String("path", ".", "root path of site repo")
-	distFlag := flag.String("dist", "dist", "path to generate in")
-	themeFlag := flag.String("theme", "default", "theme name to generate with")
-	portFlag := flag.String("port", "8080", "port of serve")
-	flag.Parse()
+	app := cli.NewApp()
+	app.Name = "Static Site Generator"
+	app.Description = "Generates static site from simple markdown files"
+	app.Copyright = "@Copyleft All wrongs reserved"
 
-	switch {
-	case flag.Arg(0) == "generate":
-		err := ssg.Generate(*pathFlag, *distFlag, *themeFlag)
-		if err != nil {
-			log.Fatalln(fmt.Errorf("error on generate: %w", err))
-		}
-	case flag.Arg(0) == "serve":
-		err := ssg.Serve(*pathFlag, *portFlag)
-		if err != nil {
-			log.Fatalln(fmt.Errorf("error on serve: %w", err))
-		}
-	case flag.Arg(0) == "version":
-		err := ssg.PrintVersion()
-		if err != nil {
-			log.Fatalln(fmt.Errorf("error on print version: %w", err))
-		}
-	default:
-		err := ssg.PrintHelp()
-		if err != nil {
-			log.Fatalln(fmt.Errorf("error on print help: %w", err))
-		}
+	app.Commands = append(app.Commands, &cli.Command{
+		Name:        "generate",
+		Description: "generates static site from markdowns",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "path",
+				Value: ".",
+				Usage: "root path of site repo",
+			},
+			&cli.StringFlag{
+				Name:  "dist",
+				Value: "dist",
+				Usage: "path to generate in",
+			},
+			&cli.StringFlag{
+				Name:  "theme",
+				Value: "default",
+				Usage: "theme name to generate with",
+			},
+		},
+		Action: func(ctx *cli.Context) error {
+			err := ssg.Generate(ctx.String("path"), ctx.String("dist"), ctx.String("theme"))
+			if err != nil {
+				return errors.Wrap(err, "error on generate")
+			}
+
+			return nil
+		},
+	})
+
+	app.Commands = append(app.Commands, &cli.Command{
+		Name:        "serve",
+		Description: "serves generated static site",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "path",
+				Value: ".",
+				Usage: "root path of site repo",
+			},
+			&cli.StringFlag{
+				Name:  "port",
+				Value: "8080",
+				Usage: "port of serve",
+			},
+		},
+		Action: func(ctx *cli.Context) error {
+			err := ssg.Serve(ctx.String("path"), ctx.String("port"))
+			if err != nil {
+				return errors.Wrap(err, "error on serve")
+			}
+
+			return nil
+		},
+	})
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatalln(errors.Wrap(err, "error on run cli"))
 	}
 }
