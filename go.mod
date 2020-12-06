@@ -3,6 +3,7 @@ module github.com/nasermirzaei89/ssg
 go 1.15
 
 require (
+	github.com/otiai10/copy v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/yuin/goldmark v1.2.1

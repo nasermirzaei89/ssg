@@ -2,7 +2,8 @@ package ssg
 
 import (
 	"bytes"
-	"fmt"
+	"github.com/otiai10/copy"
+	"github.com/pkg/errors"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark-meta"
 	"github.com/yuin/goldmark/parser"
@@ -20,13 +21,6 @@ type PageData struct {
 	Content template.HTML
 	Type    string
 	Layout  string
-}
-
-type PageConfig struct {
-	Title     string
-	Permalink string
-	Type      string
-	Layout    string
 }
 
 func Generate(dir, distPath, themePath string) error {
@@ -60,7 +54,7 @@ func Generate(dir, distPath, themePath string) error {
 
 		tpl, err := template.ParseFiles(p)
 		if err != nil {
-			return fmt.Errorf("error on parse template: %w", err)
+			return errors.Wrap(err, "error on parse template")
 		}
 
 		tpls[fileName] = tpl
@@ -68,7 +62,7 @@ func Generate(dir, distPath, themePath string) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("error on walk filepath: %w", err)
+		return errors.Wrap(err, "error on walk filepath")
 	}
 
 	var distDir string
@@ -77,14 +71,15 @@ func Generate(dir, distPath, themePath string) error {
 	} else {
 		distDir = path.Join(baseDir, distPath)
 	}
+
 	err = os.RemoveAll(distDir)
 	if err != nil {
-		return fmt.Errorf("error on remove directory: %w", err)
+		return errors.Wrap(err, "error on remove directory")
 	}
 
 	err = os.MkdirAll(distDir, 0755)
 	if err != nil {
-		return fmt.Errorf("error on make directory: %w", err)
+		return errors.Wrap(err, "error on make directory")
 	}
 
 	pages := make([]string, 0)
@@ -110,13 +105,13 @@ func Generate(dir, distPath, themePath string) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("error on walk filepath: %w", err)
+		return errors.Wrap(err, "error on walk filepath")
 	}
 
 	for i := range pages {
 		b, err := ioutil.ReadFile(pages[i])
 		if err != nil {
-			return fmt.Errorf("error on read file: %w", err)
+			return errors.Wrap(err, "error on read file")
 		}
 
 		var pageData PageData
@@ -139,21 +134,22 @@ func Generate(dir, distPath, themePath string) error {
 		)
 
 		ctx := parser.NewContext()
+
 		err = md.Convert(b, buf, parser.WithContext(ctx))
 		if err != nil {
-			return fmt.Errorf("error on convert markdown to html: %w", err)
+			return errors.Wrap(err, "error on convert markdown to html")
 		}
 
 		cfg, err := meta.TryGet(ctx)
 		if err != nil {
-			return fmt.Errorf("error on get yaml data from markdown: %w", err)
+			return errors.Wrap(err, "error on get yaml data from markdown: %w")
 		}
 
 		if iv, ok := cfg["title"]; ok {
 			if v, ok2 := iv.(string); ok2 {
 				pageData.Title = v
 			} else {
-				return fmt.Errorf("invalid type for title field in meta: %T", iv)
+				return errors.Errorf("invalid type for title field in meta: %T", iv)
 			}
 		}
 
@@ -161,7 +157,7 @@ func Generate(dir, distPath, themePath string) error {
 			if v, ok2 := iv.(string); ok2 {
 				pageData.URL = v
 			} else {
-				return fmt.Errorf("invalid type for permalink field in meta: %T", iv)
+				return errors.Errorf("invalid type for permalink field in meta: %T", iv)
 			}
 		}
 
@@ -169,7 +165,7 @@ func Generate(dir, distPath, themePath string) error {
 			if v, ok2 := iv.(string); ok2 {
 				pageData.Type = v
 			} else {
-				return fmt.Errorf("invalid type for type field in meta: %T", iv)
+				return errors.Errorf("invalid type for type field in meta: %T", iv)
 			}
 		}
 
@@ -177,7 +173,7 @@ func Generate(dir, distPath, themePath string) error {
 			if v, ok2 := iv.(string); ok2 {
 				pageData.Layout = v
 			} else {
-				return fmt.Errorf("invalid type for layout field in meta: %T", iv)
+				return errors.Errorf("invalid type for layout field in meta: %T", iv)
 			}
 		}
 
@@ -187,23 +183,32 @@ func Generate(dir, distPath, themePath string) error {
 
 		err = os.MkdirAll(path.Dir(pagePath), 0755)
 		if err != nil {
-			return fmt.Errorf("error on make directory: %w", err)
+			return errors.Wrap(err, "error on make directory")
 		}
 
 		htmlFile, err := os.OpenFile(pagePath, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			return fmt.Errorf("error on open file: %w", err)
+			return errors.Wrap(err, "error on open file")
 		}
 
 		pageTpl, ok := tpls[pageData.Layout]
 		if !ok {
-			return fmt.Errorf("layout '%s' doesn't exists", pageData.Layout)
+			return errors.Errorf("layout '%s' doesn't exists", pageData.Layout)
 		}
 
 		err = pageTpl.Execute(htmlFile, pageData)
 		if err != nil {
-			return fmt.Errorf("error on execute page template: %w", err)
+			return errors.Wrap(err, "error on execute page template")
 		}
+	}
+
+	// copy static
+
+	staticDir := path.Join(baseDir, "static")
+
+	err = copy.Copy(staticDir, distDir)
+	if err != nil {
+		return errors.Wrap(err, "error on copy statics")
 	}
 
 	return nil
